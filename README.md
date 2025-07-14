@@ -1,2 +1,13 @@
 # Wordle-O-zbekcha
-🎮 Wordle O‘zbekcha — 5 harfli so‘zni 6 urinishda toping! Harflar 🟩, 🟨 va ⬜️ ranglar orqali baholanadi. Mobilga mos, tovushli, g‘alabada zarlar sochiladi! Do‘stlaringiz bilan baham ko‘ring va aqlingizni sinang! 💡🇺🇿
+🎯 Wordle O‘zbekcha — Har kuni yangi so‘z, aqlni charxlovchi o‘zbekcha o‘yin!
+
+Salom, do‘stlar! 👋
+O‘zbek tilida 5 harfli so‘zni topishga asoslangan mini web-o‘yin tayyorladim. Mobil va kompyuterda qulay ishlaydi! 📱💻
+
+🔑 Asosiy imkoniyatlar:
+🖐️ O‘zbekcha harflar
+🎶 Tovushlar bilan interaktivlik
+🎊 Yutganingizda zarlar (konfetti) yog‘iladi
+🌙 Tungi va kunduzgi rejim
+📊 G‘alaba va yutqazish statistikasi
+📖 So‘zlar ro‘yxati tugmasi
