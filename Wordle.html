@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wordle O‘zbekcha</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    body.dark-mode {
+      background: #121212;
+      color: #f0f0f0;
+    }
+
+    body.dark-mode .tile {
+      background-color: #1e1e1e;
+      border-color: #444;
+      color: #fff;
+    }
+
+    body.dark-mode .modal-content {
+      background: #222;
+      color: #fff;
+    }
+
+    body.dark-mode .key {
+      background: #333;
+      color: #fff;
+    }
+
+    body.dark-mode h1,
+    body.dark-mode #stats {
+      color: #f0f0f0;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: #f2f2f2;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    #stats {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #555;
+    }
+
+    #game {
+      display: grid;
+      grid-template-rows: repeat(6, 1fr);
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .tile {
+      width: 50px;
+      height: 50px;
+      font-size: 24px;
+      font-weight: bold;
+      text-transform: uppercase;
+      border: 2px solid #ccc;
+      background-color: white;
+      line-height: 50px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .correct { background-color: #6aaa64; color: white; border-color: #6aaa64; }
+    .present { background-color: #c9b458; color: white; border-color: #c9b458; }
+    .absent { background-color: #787c7e; color: white; border-color: #787c7e; }
+
+    .shake {
+      animation: shake 0.3s;
+    }
+
+    @keyframes shake {
+      0% { transform: translateX(-5px); }
+      25% { transform: translateX(5px); }
+      50% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+      100% { transform: translateX(0); }
+    }
+
+.key {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #e0e0e0;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  margin: 3px; /* tugmalar orasiga bo‘shliq */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* pastga engil soya */
+}
+
+
+    .control-btns {
+      margin: 20px 0;
+    }
+
+    @media (max-width: 500px) {
+      .tile {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+      }
+    }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      max-width: 90%;
+      border-radius: 10px;
+      text-align: left;
+    }
+
+    .word-list-content {
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wordle O‘zbekcha</h1>
+  <button id="toggleTheme">🌙 Tungi rejim</button>
+
+  <div id="stats">G‘alabalar: <span id="wins">0</span> | Mag‘lubiyatlar: <span id="losses">0</span></div>
+
+  <div id="game"></div>
+
+  <div class="control-btns">
+    <button id="restart">🔁 Qaytadan boshlash</button>
+    <button id="aboutBtn">ℹ️ O‘yin haqida</button>
+    <button id="creatorBtn">👤 Yaratuvchi haqida</button>
+    <button id="wordListBtn">📚 So‘zlar ro‘yxati</button>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <!-- Tovushlar -->
+  <audio id="sound-invalid" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+  <audio id="sound-win" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+  <audio id="sound-lose" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+  <!-- O'yin haqida Modal -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h2>🎮 O‘yin haqida</h2>
+    <p>
+      ✅ <strong>Wordle</strong> — bu 5 harfli so‘zni topishga asoslangan ajoyib o‘yin!
+    </p>
+    <p>
+      🔢 Sizda <strong>6 ta urinish</strong> mavjud. Harflar quyidagi ranglar orqali baholanadi:
+    </p>
+    <ul>
+      <li>🟩 To‘g‘ri joydagi harf</li>
+      <li>🟨 So‘zda bor, lekin joyi noto‘g‘ri</li>
+      <li>⬜ So‘zda yo‘q</li>
+    </ul>
+
+    <p>
+      🔤 O‘zbek tilidagi ba’zi harflar — <strong>g‘</strong>, <strong>o‘</strong> — ikki belgidan iborat bo‘lsa ham, o‘yinda <strong>bitta harf</strong> sifatida hisoblanadi.
+    </p>
+
+    <p>
+      Quyidagi so‘zlarda bu harflar ishtirok etadi (o‘yindagi yozilishi va talaffuzi bilan):
+    </p>
+    <ul>
+      <li><strong>g‘</strong> harfi — g‘isht <em>(gisht)</em>, g‘azal <em>(gazal)</em>, g‘osht <em>(gosht)</em></li>
+      <li><strong>o‘</strong> harfi — do‘kon <em>(dokon)</em>, o‘qchi <em>(oqchi)</em>, o‘rmon <em>(ormon)</em></li>
+    </ul>
+
+    <p>
+      📱 O‘yin mobil qurilmalar uchun ham moslashtirilgan.<br>
+      🧠 Omad tilaymiz! 🍀
+    </p>
+
+    <button onclick="closeModal()">Yopish</button>
+  </div>
+</div>
+
+
+  <!-- Yaratuvchi haqida Modal -->
+  <div id="creatorModal" class="modal">
+    <div class="modal-content">
+      <h2>👤 Yaratuvchi haqida</h2>
+      <pre style="font-family: monospace; white-space: pre-wrap; line-height: 1.4; font-size: 14px;">
+╔═══════ஜ۩۞۩ஜ═══════╗  
+
+MENI QIDIRISHING SHART EMAS,  
+     MANA LINKLARIM:
+
+🌐 Instagram: @reyzer2112  
+🔗 https://www.instagram.com/reyzer2112
+
+🌐 YouTube: @ReyZer-2112  
+🔗 https://www.youtube.com/@ReyZer-2112
+
+🙋🏻 Snapchat: reyzer2112  
+🔗 https://www.snapchat.com/add/reyzer2112
+
+🎮 Roblox: Zoh_1rshox020315  
+🔗 https://www.roblox.com/users/4669071068/profile
+
+🌐 Telegram: @ReyZer2112
+
+╚═══════ஜ۩۞۩ஜ═══════╝
+
+Har doim yangilikda bo‘l!
+      </pre>
+      <button onclick="closeCreatorModal()">Yopish</button>
+    </div>
+  </div>
+
+  <!-- So'zlar ro'yxati Modal -->
+  <div id="wordListModal" class="modal">
+    <div class="modal-content">
+      <h2>📚 So‘zlar ro‘yxati</h2>
+      <div id="wordListContent" class="word-list-content"></div>
+      <button onclick="closeWordListModal()">Yopish</button>
+    </div>
+  </div>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+const words = [
+  "abzal", "admin", "aholi", "anhor", "arava", "archa", "armon", "arzon", "asbob", "asrab",
+  "ayron", "aytib", "aytma", "aytsa", "ayvon", "axlat", "bahor", "balik", "bamur", "banan",
+  "barak", "bayon", "behoz", "bekor", "bemor", "berdi", "bildi", "bilim", "bilsa", "bilan",
+  "biror", "bordi", "boron", "borar", "bosar", "bosdi", "boqdi", "bozor", "bulut", "buloq",
+  "bular", "buyuk", "burun", "bolta", "dalik", "dalda", "darak", "daryo", "dasht", "dasta",
+  "dekan", "didli", "dinor", "dilim", "doimo", "doira", "dokon", "domla", "doppi", "echki",
+  "ehrom", "ehson", "ellik", "enaga", "engak", "engil", "epaqa", "ertak", "evara", "eshak",
+  "foyda", "gapir", "gazal", "gisht", "gozal", "gosht", "gulli", "guruh", "gumma", "guzar",
+  "hadis", "halol", "halqa", "hamda", "hayit", "hayot", "ibora", "ilmiy", "ishga", "ishon",
+  "issiq", "jonli", "joriy", "jadal", "javob", "javon", "jiyan", "jiyda", "jumla", "juvon",
+  "kamar", "kalit", "kamon", "kasib", "katta", "keyin", "keldi", "kelar", "kelib", "kelin",
+  "kiber", "kirar", "kirib", "kitob", "kimga", "kocha", "kolba", "komil", "komir", "kordi",
+  "kosib", "kotar", "korsa", "kovak", "kuldi", "kulgu", "kulib", "kuyov", "lozim", "makon",
+  "malla", "manba", "mango", "mazza", "mavqe", "mavzu", "menim", "meros", "mohak", "moyak",
+  "muhim", "musob", "nafas", "naqsh", "nasib", "namoz", "necha", "nohaq", "nozik", "nomus",
+  "nusxa", "oila", "okean", "olami", "olgan", "olmos", "oltin", "oqchi", "oqisa", "olgan",
+  "olgan", "olmos", "onlar", "oqchi", "oqisa", "orali", "osmon", "oshdi", "otish", "otliq",
+  "ozroq", "palma", "parda", "patir", "poliz", "poyga", "qadam", "qadir", "qasam", "qatiq",
+  "qayiq", "qayta", "qayer", "qaysi", "qalay", "qalam", "qilsa", "qirra", "qismi", "qizil",
+  "qiyin", "qidir", "qogoz", "qolar", "qolip", "qolsa", "qonun", "qorli", "qotil", "qoydi",
+  "qoyil", "quduq", "quloq", "quvon", "quvdi", "quvur", "quyon", "radio", "ramka", "rolik",
+  "romol", "rohat", "sahna", "salom", "sanoq", "sarpo", "sariq", "savol", "sakra", "sabzi",
+  "sekin", "sevar", "sevdi", "sevgi", "setka", "sharf", "shifo", "shina", "shoda", "shuni",
+  "sigdi", "sigir", "sifat", "sinab", "sizni", "sohil", "sozla", "soxta", "soqiy", "soqol",
+  "soroq", "somon", "sukut", "sovuq", "sutka", "suvoq", "tanho", "tanla", "tayin", "taroq",
+  "tarix", "tavsi", "tekin", "tezda", "tilda", "tindi", "toldi", "tolib", "tonka", "tonna",
+  "topdi", "topib", "toxta", "tovon", "tovuq", "toxta", "tulib", "tulki", "tuman", "tursa",
+  "turfa", "turna", "turli", "tushdi", "tutdi", "tugma", "uchdi", "ufqiy", "uglum", "uklam",
+  "ulash", "ulfat", "ulkan", "ulush", "ummon", "undal", "unday", "uqmas", "urush", "ushbu",
+  "ustoz", "uxlab", "vafot", "vatan", "xalat", "xarid", "xasis", "xayol", "xonim", "xodim",
+  "yangi", "yassi", "yashil", "yeldi", "yelka", "yetti", "yigla", "yigit", "yoqol", "yomon",
+  "yotar", "yondi", "yonib", "yonma", "yotdi", "yozgi", "yozib", "yozdi", "yozsa", "yugur",
+  "yupqa", "yurak", "yurar", "yurdi", "yursa", "zahar", "zamin", "zarur", "zamon", "zarar", 
+  "zarba", "zobon", "zomin"];
+
+
+let secret = "";
+let currentRow = 0;
+let currentGuess = "";
+const maxGuesses = 6;
+const game = document.getElementById("game");
+const keyboard = document.getElementById("keyboard");
+
+const winSound = document.getElementById("sound-win");
+const loseSound = document.getElementById("sound-lose");
+const invalidSound = document.getElementById("sound-invalid");
+
+let wins = parseInt(localStorage.getItem("wordleWins")) || 0;
+let losses = parseInt(localStorage.getItem("wordleLosses")) || 0;
+
+function updateStats() {
+  document.getElementById("wins").textContent = wins;
+  document.getElementById("losses").textContent = losses;
+}
+
+function createGrid() {
+  game.innerHTML = "";
+  for (let i = 0; i < maxGuesses; i++) {
+    const row = document.createElement("div");
+    row.className = "row";
+    for (let j = 0; j < 5; j++) {
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      row.appendChild(tile);
+    }
+    game.appendChild(row);
+  }
+}
+
+function updateGrid() {
+  const row = game.children[currentRow];
+  for (let i = 0; i < 5; i++) {
+    row.children[i].textContent = currentGuess[i] || "";
+  }
+}
+
+function shakeRow() {
+  const row = game.children[currentRow];
+  row.classList.remove("shake");
+  void row.offsetWidth;
+  row.classList.add("shake");
+  for (let tile of row.children) tile.style.borderColor = "red";
+  setTimeout(() => {
+    for (let tile of row.children) tile.style.borderColor = "#ccc";
+  }, 500);
+}
+
+function confettiBoom() {
+  confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+}
+
+function submitGuess() {
+  if (currentGuess.length !== 5 || !words.includes(currentGuess)) {
+    shakeRow();
+    invalidSound.play();
+    return;
+  }
+
+  const row = game.children[currentRow];
+  const result = Array(5).fill("absent");
+  const used = Array(5).fill(false);
+
+  for (let i = 0; i < 5; i++) {
+    if (currentGuess[i] === secret[i]) {
+      result[i] = "correct";
+      used[i] = true;
+    }
+  }
+
+  for (let i = 0; i < 5; i++) {
+    if (result[i] === "correct") continue;
+    for (let j = 0; j < 5; j++) {
+      if (!used[j] && currentGuess[i] === secret[j]) {
+        result[i] = "present";
+        used[j] = true;
+        break;
+      }
+    }
+  }
+
+  for (let i = 0; i < 5; i++) {
+    row.children[i].classList.add(result[i]);
+  }
+
+  if (currentGuess === secret) {
+    winSound.play();
+    confettiBoom();
+    wins++;
+    localStorage.setItem("wordleWins", wins);
+    updateStats();
+    setTimeout(() => {
+      alert("🎉 Tabriklaymiz! To‘g‘ri topdingiz!");
+      startGame();
+    }, 1000);
+  } else if (currentRow >= maxGuesses - 1) {
+    loseSound.play();
+    losses++;
+    localStorage.setItem("wordleLosses", losses);
+    updateStats();
+    setTimeout(() => {
+      alert(`😞 Urinish tugadi. So‘z: ${secret}`);
+      startGame();
+    }, 1000);
+  }
+
+  currentRow++;
+  currentGuess = "";
+}
+
+function handleKey(letter) {
+  if (letter === "⌫") {
+    currentGuess = currentGuess.slice(0, -1);
+  } else if (letter === "⏎") {
+    submitGuess();
+  } else if (/^[a-zа-ёвқҳғ]$/i.test(letter) && currentGuess.length < 5) {
+    currentGuess += letter;
+  }
+  updateGrid();
+}
+
+function createKeyboard() {
+  const rows = [
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+    ["z", "x", "c", "v", "b", "n", "m", "⌫", "⏎"]
+  ];
+
+  keyboard.innerHTML = "";
+
+  rows.forEach(row => {
+    const rowDiv = document.createElement("div");
+    rowDiv.className = "keyboard-row";
+    row.forEach(k => {
+      const btn = document.createElement("button");
+      btn.textContent = k;
+      btn.className = "key";
+      btn.onclick = () => handleKey(k);
+      rowDiv.appendChild(btn);
+    });
+    keyboard.appendChild(rowDiv);
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+  if (key === "enter") handleKey("⏎");
+  else if (key === "backspace") handleKey("⌫");
+  else if (/^[a-zа-ёвқҳғ]$/i.test(key)) handleKey(key);
+});
+
+document.getElementById("restart").onclick = () => startGame();
+
+// Theme switching
+const themeBtn = document.getElementById("toggleTheme");
+function setTheme(mode) {
+  if (mode === "dark") {
+    document.body.classList.add("dark-mode");
+    themeBtn.textContent = "☀️ Kungi rejim";
+    localStorage.setItem("theme", "dark");
+  } else {
+    document.body.classList.remove("dark-mode");
+    themeBtn.textContent = "🌙 Tungi rejim";
+    localStorage.setItem("theme", "light");
+  }
+}
+themeBtn.onclick = () => {
+  const isDark = document.body.classList.contains("dark-mode");
+  setTheme(isDark ? "light" : "dark");
+};
+setTheme(localStorage.getItem("theme") === "dark" ? "dark" : "light");
+
+// Modal functions
+const modal = document.getElementById("modal");
+const creatorModal = document.getElementById("creatorModal");
+const wordListModal = document.getElementById("wordListModal");
+
+document.getElementById("aboutBtn").onclick = () => modal.style.display = "flex";
+document.getElementById("creatorBtn").onclick = () => creatorModal.style.display = "flex";
+document.getElementById("wordListBtn").onclick = () => {
+  const container = document.getElementById("wordListContent");
+  container.innerHTML = words.map((w, i) => `${i + 1}. ${w}`).join("<br>");
+  wordListModal.style.display = "flex";
+};
+
+function closeModal() { modal.style.display = "none"; }
+function closeCreatorModal() { creatorModal.style.display = "none"; }
+function closeWordListModal() { wordListModal.style.display = "none"; }
+
+window.onclick = (e) => {
+  if (e.target === modal) closeModal();
+  if (e.target === creatorModal) closeCreatorModal();
+  if (e.target === wordListModal) closeWordListModal();
+};
+
+function startGame() {
+  secret = words[Math.floor(Math.random() * words.length)];
+  currentRow = 0;
+  currentGuess = "";
+  createGrid();
+  createKeyboard();
+}
+
+startGame();
+updateStats();
+</script>
